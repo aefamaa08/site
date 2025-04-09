@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Все игры</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #1b2838;
+      color: #c7d5e0;
+      margin: 0;
+      padding: 0;
+    }
+
+    header {
+      background-color: #171a21;
+      padding: 20px;
+      text-align: center;
+      color: #fff;
+    }
+
+    h1 {
+      margin: 0;
+    }
+
+    .filters {
+      display: flex;
+      justify-content: center;
+      margin-top: 20px;
+      gap: 20px;
+      background-color: #171a21;
+      padding: 10px;
+      flex-wrap: wrap;
+    }
+
+    .filters select {
+      padding: 5px;
+      background-color: #2a475e;
+      border: none;
+      color: #fff;
+      border-radius: 5px;
+    }
+
+    .game-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 20px;
+      padding: 20px;
+    }
+
+    .game-card {
+      background-color: #2a475e;
+      padding: 10px;
+      border-radius: 10px;
+      box-shadow: 0 0 10px rgba(255, 255, 255, 0.2);
+      transition: transform 0.3s, background-color 0.3s;
+      cursor: pointer;
+    }
+
+    .game-card img {
+      width: 100%;
+      border-radius: 5px;
+    }
+
+    .game-card:hover {
+      transform: scale(1.05);
+      background-color: #66c0f4;
+    }
+
+    .game-card h3 {
+      margin: 10px 0;
+      font-size: 18px;
+      color: #fff;
+    }
+
+    .game-card p {
+      font-size: 14px;
+      color: #ccc;
+    }
+
+    .price {
+      font-size: 16px;
+      font-weight: bold;
+      color: #00c0a8;
+    }
+
+    .free {
+      color: #66f7f1;
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1>Все игры</h1>
+  </header>
+
+  <div class="filters">
+    <select id="genreFilter">
+      <option value="">Все жанры</option>
+      <option value="action">Экшен</option>
+      <option value="adventure">Приключение</option>
+      <option value="shooter">Шутер</option>
+      <option value="strategy">Стратегия</option>
+    </select>
+
+    <select id="priceFilter">
+      <option value="">Все цены</option>
+      <option value="free">Бесплатные</option>
+      <option value="paid">Платные</option>
+    </select>
+
+    <select id="discountFilter">
+      <option value="">Все скидки</option>
+      <option value="discounted">Со скидками</option>
+      <option value="not_discounted">Без скидок</option>
+    </select>
+
+    <select id="currencySelect">
+      <option value="usd">USD</option>
+      <option value="eur">EUR</option>
+      <option value="rub">RUB</option>
+      <option value="uzs">UZS</option>
+    </select>
+  </div>
+
+  <div class="game-grid" id="gameGrid"></div>
+
+  <script>
+    const API_KEY = '926767e23a3642eeb22b593f6b82a298'; // 🔑 ВСТАВЬ СВОЙ КЛЮЧ ОТСЮДА: https://rawg.io/apidocs
+    const exchangeRates = { usd: 1, eur: 0.92, rub: 92, uzs: 12400 };
+    let selectedCurrency = 'usd';
+
+    const genreFilter = document.getElementById('genreFilter');
+    const priceFilter = document.getElementById('priceFilter');
+    const discountFilter = document.getElementById('discountFilter');
+    const currencySelect = document.getElementById('currencySelect');
+
+    let currentPage = 1;
+    const totalPages = 10; // Загружаем 10 страниц, 1000 игр
+
+    currencySelect.addEventListener('change', () => {
+      selectedCurrency = currencySelect.value;
+      document.getElementById('gameGrid').innerHTML = '';
+      loadGames(1, genreFilter.value, priceFilter.value, discountFilter.value);
+    });
+
+    genreFilter.addEventListener('change', applyFilters);
+    priceFilter.addEventListener('change', applyFilters);
+    discountFilter.addEventListener('change', applyFilters);
+
+    function applyFilters() {
+      currentPage = 1;
+      document.getElementById('gameGrid').innerHTML = '';
+      loadGames(currentPage, genreFilter.value, priceFilter.value, discountFilter.value);
+    }
+
+    function loadGames(page = 1, genre = '', price = '', discount = '') {
+      if (page > totalPages) return;  // Ограничиваем количество загружаемых страниц
+
+      let url = `https://api.rawg.io/api/games?key=${API_KEY}&page=${page}&page_size=100`;
+
+      if (genre) url += `&genres=${genre}`;
+      if (price === 'free') url += `&tags=free`;
+      if (discount === 'discounted') url += `&ordering=-metacritic`;
+
+      fetch(url)
+        .then(response => response.json())
+        .then(data => {
+          loadGameDetails(data.results);
+          if (page < totalPages) {
+            loadGames(page + 1, genre, price, discount);  // Загружаем следующую страницу
+          }
+        })
+        .catch(error => console.error('Ошибка при загрузке игр:', error));
+    }
+
+    function loadGameDetails(games) {
+      const gameGrid = document.getElementById('gameGrid');
+      games.forEach(game => {
+        const card = document.createElement('div');
+        card.className = 'game-card';
+
+        const isFree = game.tags?.some(tag => tag.name.toLowerCase().includes('free')) ?? false;
+
+        let basePrice = isFree ? 0 : Math.floor(Math.random() * 60) + 10;
+        let price = (basePrice * exchangeRates[selectedCurrency]).toFixed(2);
+        let currencySymbols = { usd: '$', eur: '€', rub: '₽', uzs: 'сум' };
+        let priceText = isFree
+          ? `<span class="price free">Бесплатно</span>`
+          : `<span class="price">${price} ${currencySymbols[selectedCurrency]}</span>`;
+
+        card.innerHTML = `
+          <img src="${game.background_image || 'https://via.placeholder.com/220x120?text=No+Image'}" alt="${game.name}">
+          <h3>${game.name}</h3>
+          <p>${game.released || 'Дата неизвестна'}</p>
+          ${priceText}
+        `;
+
+        gameGrid.appendChild(card);
+      });
+    }
+
+    // Начальная загрузка
+    loadGames(currentPage);
+  </script>
+
+</body>
+</html>
